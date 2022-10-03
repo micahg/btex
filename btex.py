@@ -71,10 +71,7 @@ def process_mkv_folder(name, path, destination):
                 if filename[-len(ext):] == ext:
                     full_filename = '{}/{}'.format(path, filename)
                     full_destination = '{}/{}'.format(destination, filename)
-                    logging.info('copying "{}" to "{}"'.format(full_filename, destination))
-                    if os.path.exists(full_destination):
-                        logging.info('{} already exists. Skipping...'.format(full_destination))
-
+                    logging.info(f'copying "{full_filename}" to "{full_destination}"')
                     body = copy_get_body(full_filename, destination)
                     send_email('{} Copied'.format(name), body)
                     return True

@@ -72,20 +72,10 @@ def process_mkv_folder(name, path, destination):
                     full_filename = '{}/{}'.format(path, filename)
                     full_destination = '{}/{}'.format(destination, filename)
                     logging.info('copying "{}" to "{}"'.format(full_filename, destination))
-                    #body = 'successfully copied "{}" to "{}"'.format(full_filename, destination)
                     if os.path.exists(full_destination):
-                        rogging.info('{} already exists. Skipping...'.format(full_destination))
-                    else:
-                        body = copy_get_body(full_filename, destination)
-                        #stats = os.stat(full_filename)
-                        #start_dt = datetime.now()
-                        #copy2(full_filename, destination)
-                        #stop_dt = datetime.now()
-                        #delta = stop_dt - start_dt
-                        #logging.info('Stats "%s"', stats.st_size)
-                        #logging.info('Delta "%s"', delta)
-                        #body = '{}\n\nCopied {}MB in {}'.format(body, stats.st_size/1048576, delta)
-                        #logging.info(body)
+                        logging.info('{} already exists. Skipping...'.format(full_destination))
+
+                    body = copy_get_body(full_filename, destination)
                     send_email('{} Copied'.format(name), body)
                     return True
     return False

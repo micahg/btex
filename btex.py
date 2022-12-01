@@ -15,7 +15,8 @@ TORRENT_MAP = {
     'the.voice': 'The Voice (US)',
     'the.walking.dead': 'Walking Dead',
     'startalk': 'StarTalk',
-    'masterchef.us': "MasterChef (US)"
+    'masterchef.us': 'MasterChef (US)',
+    'stephen.colbert': "The Late Show with Stephen Colbert"
 }
 
 FILE_EXTENSIONS = ['mkv']
@@ -84,7 +85,7 @@ def process_params(name, path):
     logging.info('torrent path is "%s"', path)
     logging.info('torrent name is "%s"', name)
 
-    match = re.match(r'(.*)\.[sS]\d+[eE]\d+\.*', name)
+    match = re.match(r'(.*)\.([sS]\d+[eE]\d|\d{4}.\d{2}.\d{2})+\.*', name)
 
     if match is None:
         err = 'ERROR: match is none for "{}"'.format(name)
@@ -154,12 +155,19 @@ def process_complete_torrents():
             logging.info('BASE WAS "%s"', base)
             base = base.split()[0]
             logging.info('BASE IS "%s"', base)
-            process_params(base, '{}/{}'.format(SRC_PATH, base))
-            os.remove('{}/finished/{}'.format(SRC_PATH, filename))
+            process_params(base, f'{SRC_PATH}/{base}')
+            os.remove(f'{SRC_PATH}/finished/{filename}')
 
 
-host_name = os.uname()
+def main():
+    """
+    Run the main program
+    """
+    logging.basicConfig(format=LOG_FORMAT, level=logging.INFO,
+                        filename='/var/log/btex.log')
 
-logging.basicConfig(format=LOG_FORMAT, level=logging.INFO, filename='btex.log')
+    process_complete_torrents()
 
-process_complete_torrents()
+
+if __name__ == '__main__':
+    main()

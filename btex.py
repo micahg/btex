@@ -29,12 +29,17 @@ def send_email(subject, body):
     server.starttls()
     server.login('ezgzsys', 'ptkhimvkvvomqphe')
     server.sendmail('ezgzsys@gmail.com', 'micahgalizia@gmail.com',
-                    'Subject: {}\n{}'.format(subject, body))
+                    f'Subject: {subject}\n{body}')
     server.quit()
     logging.info('EMail sent')
 
 
 def copy_get_body(source, dest):
+    """
+    Copy mail body.
+    @param source The source
+    @param dest The destination
+    """
     stats = os.stat(source)
     start_dt = datetime.now()
     copy2(source, dest)
@@ -63,18 +68,18 @@ def process_mkv(name, path, destination):
 def process_mkv_folder(name, path, destination):
     """Process an MKV folder."""
     if not os.path.isdir(path):
-        logging.info(f'torrent path not dir "{name}" "{path}"')
+        logging.info('torrent path not dir "%s" "%s"', name, path)
         return False
 
-    for root, dirs, files in os.walk(path):
+    for _, _, files in os.walk(path):
         for filename in files:
             for ext in FILE_EXTENSIONS:
                 if filename[-len(ext):] == ext:
-                    full_filename = '{}/{}'.format(path, filename)
-                    full_destination = '{}/{}'.format(destination, filename)
-                    logging.info(f'copying "{full_filename}" to "{full_destination}"')
+                    full_filename = f'{path}/{filename}'
+                    full_destination = f'{destination}/{filename}'
+                    logging.info('copying "%s" to "%s"', full_filename, full_destination)
                     body = copy_get_body(full_filename, destination)
-                    send_email('{} Copied'.format(name), body)
+                    send_email(f'{name} Copied', body)
                     return True
     return False
 
@@ -88,26 +93,28 @@ def process_params(name, path):
     match = re.match(r'(.*)\.([sS]\d+[eE]\d|\d{4}.\d{2}.\d{2})+\.*', name)
 
     if match is None:
-        err = 'ERROR: match is none for "{}"'.format(name)
+        err = f'ERROR: match is none for "{name}"'
         logging.error(err)
-        send_email('FAILED Copying {}'.format(name), err)
+        send_email(f'FAILED Copying {name}', err)
         return
 
     if match.groups is None:
-        err = 'ERROR: groups none for "{}"'.format(name)
+        err = f'ERROR: groups none for "{name}"'
         logging.error(err)
-        send_email('FAILED Copying {}'.format(name), err)
+        send_email(f'FAILED Copying {name}', err)
         return
 
     if len(match.groups()) == 0:
-        err = 'ERROR: Unmatched torrent (0) "{}"'.format(name)
+        err = f'ERROR: Unmatched torrent (0) "{name}"'
         logging.error(err)
-        send_email('FAILED Copying {}'.format(name), err)
+        send_email(f'FAILED Copying {name}', err)
         return
 
     name = match[1].lower()
+    epno = match[2].lower()
     logging.info('name is "%s"', name)
-    name = TORRENT_MAP[name] if name in TORRENT_MAP.keys() else name.replace('.', ' ').title()
+    logging.info('epno is "%s"', epno)
+    name = TORRENT_MAP[name] if name in TORRENT_MAP else name.replace('.', ' ').title()
 
     logging.info('name prefix is "%s"', name)
     destination = None
@@ -116,21 +123,34 @@ def process_params(name, path):
             continue
 
         logging.info('"%s" == "%s"', name, filename)
-        destination = '{}/{}'.format(DEST_PATH, filename)
+        destination = f'{DEST_PATH}/{filename}'
         logging.info('Going with "%s"', destination)
         break
 
     if destination is None:
-        err = 'Unable to find sufficient match in {}'.format(DEST_PATH)
+        err = f'Unable to find sufficient match in {DEST_PATH}'
         logging.error(err)
-        send_email('FAILED Copying{}'.format(name), err)
+        send_email('FAILED Copying{name}', err)
         return
 
     if not os.path.isdir(destination):
         err = 'Destination not folder'
         logging.error(err)
-        send_email('FAILED Copying {}'.format(name), err)
+        send_email(f'FAILED Copying {name}', err)
         return
+
+    logging.info('doing deletions')
+    for filename in os.listdir(destination):
+        if epno in filename.lower():
+            deletion = f'{destination}/{filename}'
+            logging.info('Deleting %s', deletion)
+            try:
+                os.remove(deletion)
+                logging.info('Successfully deleted %s', deletion)
+                send_email(f'DELETED {name} {epno}', deletion)
+            except (OSError, FileNotFoundError) as err:
+                logging.error('Unable to delete %s: %s', deletion, err)
+                send_email(f'FAILED DELETION {name} {epno}', deletion)
 
     result = process_mkv_folder(name, path, destination)
     if not result:
@@ -138,20 +158,19 @@ def process_params(name, path):
         result = process_mkv(name, path, destination)
 
     if not result:
-        send_email('FAILED Copying {}'.format(name), path)
+        send_email('FAILED Copying {name}', path)
 
     logging.info('*** DONE "%s" ***', name)
 
 
 def process_complete_torrents():
     """Process every torrent file in the finished location."""
-    for filename in os.listdir('{}/finished'.format(SRC_PATH)):
+    for filename in os.listdir(f'{SRC_PATH}/finished'):
         logging.info('FILENAME is "%s"', filename)
         splitnames = os.path.splitext(filename)
         logging.info('SPLIT IS "%s"', splitnames)
         if splitnames[1] == '.torrent':
             base = splitnames[0]
-            logging.info('MICAH LOOK HERE WHEN IT BREAKS - SPLITTING BASE BY SPACE BECAUSE OF " [TD]" SUFFIX')
             logging.info('BASE WAS "%s"', base)
             base = base.split()[0]
             logging.info('BASE IS "%s"', base)

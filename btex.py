@@ -21,6 +21,7 @@ TORRENT_MAP = {
 
 FILE_EXTENSIONS = ['mkv']
 
+SHOW_RE = r'(.*)\.([sS]\d+[eE]\d+|\d{4}.\d{2}.\d{2})+\.*'
 
 def send_email(subject, body):
     """Send an email with a subject and body."""
@@ -84,36 +85,9 @@ def process_mkv_folder(name, path, destination):
     return False
 
 
-def process_params(name, path):
+def process_params(name, epno, path):
     """Process a torrent."""
     logging.info('*** STARTING "%s" ***', name)
-    logging.info('torrent path is "%s"', path)
-    logging.info('torrent name is "%s"', name)
-
-    match = re.match(r'(.*)\.([sS]\d+[eE]\d|\d{4}.\d{2}.\d{2})+\.*', name)
-
-    if match is None:
-        err = f'ERROR: match is none for "{name}"'
-        logging.error(err)
-        send_email(f'FAILED Copying {name}', err)
-        return
-
-    if match.groups is None:
-        err = f'ERROR: groups none for "{name}"'
-        logging.error(err)
-        send_email(f'FAILED Copying {name}', err)
-        return
-
-    if len(match.groups()) == 0:
-        err = f'ERROR: Unmatched torrent (0) "{name}"'
-        logging.error(err)
-        send_email(f'FAILED Copying {name}', err)
-        return
-
-    name = match[1].lower()
-    epno = match[2].lower()
-    logging.info('name is "%s"', name)
-    logging.info('epno is "%s"', epno)
     name = TORRENT_MAP[name] if name in TORRENT_MAP else name.replace('.', ' ').title()
 
     logging.info('name prefix is "%s"', name)
@@ -163,6 +137,31 @@ def process_params(name, path):
     logging.info('*** DONE "%s" ***', name)
 
 
+def get_show_name_and_episode_and_path(name):
+    """Get a show name."""
+    match = re.match(r'((.*)[\s\.](S\d+E\d+|\d{4}.\d{2}.\d{2}).*?)([\s\.]\[TD\])?.torrent', name)
+
+    if match is None:
+        err = f'ERROR: match is none for "{name}"'
+        logging.error(err)
+        send_email(f'FAILED Copying {name}', err)
+        return
+
+    if match.groups is None:
+        err = f'ERROR: groups none for "{name}"'
+        logging.error(err)
+        send_email(f'FAILED Copying {name}', err)
+        return
+
+    if len(match.groups()) == 0:
+        err = f'ERROR: Unmatched torrent (0) "{name}"'
+        logging.error(err)
+        send_email(f'FAILED Copying {name}', err)
+        return
+
+    # name, episode, path
+    return match[2], match[3], match[1]
+
 def process_complete_torrents():
     """Process every torrent file in the finished location."""
     for filename in os.listdir(f'{SRC_PATH}/finished'):
@@ -170,11 +169,12 @@ def process_complete_torrents():
         splitnames = os.path.splitext(filename)
         logging.info('SPLIT IS "%s"', splitnames)
         if splitnames[1] == '.torrent':
-            base = splitnames[0]
-            logging.info('BASE WAS "%s"', base)
-            base = base.split()[0]
-            logging.info('BASE IS "%s"', base)
-            process_params(base, f'{SRC_PATH}/{base}')
+            # logging.info('MICAH LOOK HERE WHEN IT BREAKS - SPLITTING BASE BY SPACE BECAUSE OF " [TD]" SUFFIX')
+            name, episode, path = get_show_name_and_episode_and_path(filename)
+            logging.info('NAME IS "%s"', name)
+            logging.info('EPISODE IS "%s"', episode)
+            logging.info('PATH IS "%s"', path)
+            process_params(name, episode, f'{SRC_PATH}/{path}')
             os.remove(f'{SRC_PATH}/finished/{filename}')
 
 

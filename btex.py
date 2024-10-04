@@ -113,9 +113,9 @@ def process_params(name, epno, path):
         send_email(f'FAILED Copying {name}', err)
         return
 
-    logging.info('doing deletions')
+    logging.info(f'deleting "{name}" {epno} from {destination}')
     for filename in os.listdir(destination):
-        if epno in filename.lower():
+        if epno.lower() in filename.lower():
             deletion = f'{destination}/{filename}'
             logging.info('Deleting %s', deletion)
             try:

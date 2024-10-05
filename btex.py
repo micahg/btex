@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Bittorrent Extractor module."""
+import sys
 import re
 import os
 import logging
+import json
 from datetime import datetime
 import smtplib
 from shutil import copy2
@@ -19,13 +21,40 @@ FILE_EXTENSIONS = ['mkv']
 
 SHOW_RE = r'(.*)\.([sS]\d+[eE]\d+|\d{4}.\d{2}.\d{2})+\.*'
 
+def validate_email_config(config):
+    if 'username' not in config:
+        logging.error('No username in config')
+        sys.exit(1)
+    elif 'password' not in config:
+        logging.error('No password in config')
+        sys.exit(1)
+    elif 'sender' not in config:
+        logging.error('No sender in config')
+        sys.exit(1)
+    elif 'recipient' not in config:
+        logging.error('No recipient in config')
+        sys.exit(1)
+    elif 'smtphost' not in config:
+        logging.error('No smtphost in config')
+        sys.exit(1)
+
+
 def send_email(subject, body):
     """Send an email with a subject and body."""
-    server = smtplib.SMTP('smtp.gmail.com', 587)
+    try:
+        with open('config.json', 'r', encoding="utf-8") as file:
+            config = json.load(file)
+    except Exception as err:
+        logging.error('Unable to load config: %s', err)
+        sys.exit(1)
+
+    validate_email_config(config)
+
+    server = smtplib.SMTP(config['smtphost'], 587)
     server.ehlo()
     server.starttls()
-    server.login('ezgzsys', 'ptkhimvkvvomqphe')
-    server.sendmail('ezgzsys@gmail.com', 'micahgalizia@gmail.com',
+    server.login(config['username'], config['password'])
+    server.sendmail(config['sender'], config['recipient'],
                     f'Subject: {subject}\n{body}')
     server.quit()
     logging.info('EMail sent')

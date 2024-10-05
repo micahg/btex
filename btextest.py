@@ -4,7 +4,6 @@ from unittest.mock import MagicMock
 
 
 import btex
-# from btex import hi
 
 class TestBtex(unittest.TestCase):
     def test_get_show_name_and_episode_and_path(self):
@@ -42,10 +41,9 @@ class TestBtex(unittest.TestCase):
 
     @mock.patch('os.listdir', MagicMock(return_value=['The Late Show with Stephen Colbert']))
     @mock.patch('os.path.isdir', MagicMock(return_value=True))
+    @mock.patch('btex.send_email', MagicMock(return_value=None))
+    @mock.patch('btex.process_mkv_folder', MagicMock(return_value=True))
     def test_process_params(self):
-        btex.send_email = MagicMock(return_value=None)
-        btex.process_mkv_folder = MagicMock(return_value=True)
-        # btex.process_mkv = MagicMock(return_value=True)
         tests = [
             {
                 'name': 'Stephen.Colbert',
@@ -56,3 +54,16 @@ class TestBtex(unittest.TestCase):
         ]
         for test in tests:
             btex.process_params(test['name'], test['episode'], test['path'])
+
+    @mock.patch('builtins.open', mock.mock_open(read_data='{"smtphost": "SMTPHOST","username": "USER","password": "PASSWORD","sender": "SENDER","recipient": "RECIPIENT"}'))
+    def test_send_email(self):
+        with mock.patch('smtplib.SMTP', autospec=True) as mock_smtplib:
+            btex.send_email('SUBJ', 'BODY')
+
+            mock_smtplib.assert_called_once_with('SMTPHOST', 587)
+            mock_smtp = mock_smtplib.return_value #.__enter__.return_value
+            mock_smtp.ehlo.assert_called_once()
+            mock_smtp.starttls.assert_called_once()
+            mock_smtp.login.assert_called_once_with('USER', 'PASSWORD')
+            mock_smtp.sendmail.assert_called_once_with('SENDER', 'RECIPIENT', 'Subject: SUBJ\nBODY')
+            mock_smtp.quit.assert_called_once()

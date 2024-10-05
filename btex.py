@@ -12,11 +12,7 @@ DEST_PATH = '/srv/video/tv'
 SRC_PATH = '/home/micah/torrents'
 NAME_REGEX = '()'
 TORRENT_MAP = {
-    'the.voice': 'The Voice (US)',
-    'the.walking.dead': 'Walking Dead',
-    'startalk': 'StarTalk',
-    'masterchef.us': 'MasterChef (US)',
-    'stephen.colbert': "The Late Show with Stephen Colbert"
+    'stephen colbert': "The Late Show with Stephen Colbert"
 }
 
 FILE_EXTENSIONS = ['mkv']
@@ -88,7 +84,8 @@ def process_mkv_folder(name, path, destination):
 def process_params(name, epno, path):
     """Process a torrent."""
     logging.info('*** STARTING "%s" ***', name)
-    name = TORRENT_MAP[name] if name in TORRENT_MAP else name.replace('.', ' ').title()
+    name = name.replace('.', ' ').lower()
+    name = TORRENT_MAP[name] if name in TORRENT_MAP else name.title()
 
     logging.info('name prefix is "%s"', name)
     destination = None
@@ -104,13 +101,13 @@ def process_params(name, epno, path):
     if destination is None:
         err = f'Unable to find sufficient match in {DEST_PATH}'
         logging.error(err)
-        send_email('FAILED Copying{name}', err)
+        send_email('FAILED Copying "{name}"', err)
         return
 
     if not os.path.isdir(destination):
         err = 'Destination not folder'
         logging.error(err)
-        send_email(f'FAILED Copying {name}', err)
+        send_email(f'FAILED Copying "{name}"', err)
         return
 
     logging.info(f'deleting "{name}" {epno} from {destination}')

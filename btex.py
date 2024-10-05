@@ -50,13 +50,17 @@ def send_email(subject, body):
 
     validate_email_config(config)
 
-    server = smtplib.SMTP(config['smtphost'], 587)
-    server.ehlo()
-    server.starttls()
-    server.login(config['username'], config['password'])
-    server.sendmail(config['sender'], config['recipient'],
-                    f'Subject: {subject}\n{body}')
-    server.quit()
+    try:
+        server = smtplib.SMTP(config['smtphost'], 587)
+        server.ehlo()
+        server.starttls()
+        server.login(config['username'], config['password'])
+        server.sendmail(config['sender'], config['recipient'],
+                        f'Subject: {subject}\n{body}')
+        server.quit()
+    except Exception as err:
+        logging.error('Unable to send email: %s', err)
+        sys.exit(1)
     logging.info('EMail sent')
 
 

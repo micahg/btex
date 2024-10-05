@@ -1,4 +1,7 @@
 import unittest
+import unittest.mock as mock
+from unittest.mock import MagicMock
+
 
 import btex
 # from btex import hi
@@ -36,3 +39,20 @@ class TestBtex(unittest.TestCase):
             self.assertEqual(name, test['name'])
             self.assertEqual(episode, test['episode'])
             self.assertEqual(path, test['path'])
+
+    @mock.patch('os.listdir', MagicMock(return_value=['The Late Show with Stephen Colbert']))
+    @mock.patch('os.path.isdir', MagicMock(return_value=True))
+    def test_process_params(self):
+        btex.send_email = MagicMock(return_value=None)
+        btex.process_mkv_folder = MagicMock(return_value=True)
+        # btex.process_mkv = MagicMock(return_value=True)
+        tests = [
+            {
+                'name': 'Stephen.Colbert',
+                'episode': '2024.10.03',
+                'dirs': ['The Late Show with Stephen Colbert'],
+                'path': 'Stephen.Colbert.2024.10.03.Chris.Wallace.720p.HEVC.x265-MeGusta',
+            },
+        ]
+        for test in tests:
+            btex.process_params(test['name'], test['episode'], test['path'])

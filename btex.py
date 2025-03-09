@@ -195,7 +195,8 @@ def get_show_name_and_episode_and_path(name):
 def process_complete_torrents():
     """Process every torrent file in the finished location."""
     for filename in os.listdir(f'{SRC_PATH}/finished'):
-        logging.info('FILENAME is "%s"', filename)
+        logging.info('FILENAME is "%s" (deleting now)', filename)
+        os.remove(f'{SRC_PATH}/finished/{filename}')
         splitnames = os.path.splitext(filename)
         logging.info('SPLIT IS "%s"', splitnames)
         if splitnames[1] == '.torrent':
@@ -205,7 +206,6 @@ def process_complete_torrents():
             logging.info('EPISODE IS "%s"', episode)
             logging.info('PATH IS "%s"', path)
             process_params(name, episode, f'{SRC_PATH}/{path}')
-            os.remove(f'{SRC_PATH}/finished/{filename}')
 
 
 def main():

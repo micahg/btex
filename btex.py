@@ -64,6 +64,18 @@ def send_email(subject, body):
     logging.info('EMail sent')
 
 
+def find_target_file_in_folder(path, extensions):
+    """
+    Find a target file in a folder.
+    @param path The path to search
+    @param extensions The file extensions to search for
+    """
+    for _, _, files in os.walk(path):
+        for filename in files:
+            for ext in extensions:
+                if filename[-len(ext):] == ext:
+                    return filename
+
 def copy_get_body(source, dest):
     """
     Copy mail body.
@@ -79,6 +91,24 @@ def copy_get_body(source, dest):
     logging.info('Delta "%s"', delta)
     body = f'successfully copied "{source}" to "{dest}"'
     body = f'{body}\n\nCopied {stats.st_size/1048576}MB in {delta}'
+    logging.info(body)
+    return body
+
+def unrar_get_body(source, dest):
+    """
+    un-rar and return mail body.
+    @param source The source
+    @param dest The destination
+    """
+    stats = os.stat(source)
+    start_dt = datetime.now()
+    os.system(f'unrar e "{source}" "{dest}"')
+    stop_dt = datetime.now()
+    delta = stop_dt - start_dt
+    logging.info('Stats "%s"', stats.st_size)
+    logging.info('Delta "%s"', delta)
+    body = f'successfully unrared "{source}" to "{dest}"'
+    body = f'{body}\n\nUnrared {stats.st_size/1048576}MB in {delta}'
     logging.info(body)
     return body
 
@@ -101,18 +131,31 @@ def process_mkv_folder(name, path, destination):
         logging.info('torrent path not dir "%s" "%s"', name, path)
         return False
 
-    for _, _, files in os.walk(path):
-        for filename in files:
-            for ext in FILE_EXTENSIONS:
-                if filename[-len(ext):] == ext:
-                    full_filename = f'{path}/{filename}'
-                    full_destination = f'{destination}/{filename}'
-                    logging.info('copying "%s" to "%s"', full_filename, full_destination)
-                    body = copy_get_body(full_filename, destination)
-                    send_email(f'{name} Copied', body)
-                    return True
-    return False
+    filename = find_target_file_in_folder(path, FILE_EXTENSIONS)
+    if filename is None:
+        return False
 
+
+    full_filename = f'{path}/{filename}'
+    full_destination = f'{destination}/{filename}'
+    logging.info('copying "%s" to "%s"', full_filename, full_destination)
+    body = copy_get_body(full_filename, destination)
+    send_email(f'{name} Copied', body)
+    return True
+
+def process_rar(name, path, destination):
+    """Process a RAR file."""
+    if not os.path.isdir(path):
+        logging.info('torrent path not dir "%s" "%s"', name, path)
+        return False
+
+    filename = find_target_file_in_folder(path, ['.rar'])
+    if filename is None:
+        return False
+
+    body = unrar_get_body(f'{path}/{filename}', destination)
+    send_email(f'{name} extracted', body)
+    return True
 
 def process_params(name, epno, path):
     """Process a torrent."""
@@ -160,6 +203,10 @@ def process_params(name, epno, path):
     if not result:
         logging.info('Process as file %s, %s, %s', name, path, destination)
         result = process_mkv(name, path, destination)
+
+    if not result:
+        logging.info('Process as rar %s, %s, %s', name, path, destination)
+        result = process_rar(name, path, destination)
 
     if not result:
         send_email('FAILED Copying {name}', path)

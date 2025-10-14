@@ -10,8 +10,8 @@ import smtplib
 from shutil import copy2
 
 LOG_FORMAT = '%(asctime)-15s [%(funcName)s] %(message)s'
-DEST_PATH = '/srv/video/tv'
-SRC_PATH = '/home/micah/torrents'
+DEST_PATH = os.getenv('DEST_PATH', '/srv')
+SRC_PATH = os.getenv('SRC_PATH', '/src')
 NAME_REGEX = '()'
 TORRENT_MAP = {
     'stephen colbert': "The Late Show with Stephen Colbert"
@@ -259,8 +259,7 @@ def main():
     """
     Run the main program
     """
-    logging.basicConfig(format=LOG_FORMAT, level=logging.INFO,
-                        filename='/var/log/btex.log')
+    logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
 
     process_complete_torrents()
 

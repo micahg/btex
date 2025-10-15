@@ -16,6 +16,7 @@ services:
       - PYTHONUNBUFFERED=1
       - DEST_PATH=${DEST_PATH:-/srv}
       - SRC_PATH=${SRC_PATH:-/src}
+      - FINISHED_PATH=${FINISHED_PATH:-}
       # Email configuration (optional)
       - SMTP_HOST=${SMTP_HOST:-}
       - SMTP_USERNAME=${SMTP_USERNAME:-}

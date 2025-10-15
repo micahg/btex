@@ -1,13 +1,12 @@
-# Use Python 3.11 slim image as base
-FROM python:3.11-slim
+# Use Python 3 Alpine image as base
+FROM python:3-alpine
 
 # Set working directory
 WORKDIR /app
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y \
-    unrar \
-    && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache \
+    unrar
 
 # Copy requirements first for better Docker layer caching
 COPY requirements.txt .

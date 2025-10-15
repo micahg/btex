@@ -12,6 +12,7 @@ from shutil import copy2
 LOG_FORMAT = '%(asctime)-15s [%(funcName)s] %(message)s'
 DEST_PATH = os.getenv('DEST_PATH', '/srv')
 SRC_PATH = os.getenv('SRC_PATH', '/src')
+FINISHED_PATH = os.getenv('FINISHED_PATH', f'{SRC_PATH}/finished')
 
 # Email configuration from environment variables
 SMTP_HOST = os.getenv('SMTP_HOST', '')
@@ -246,9 +247,9 @@ def get_show_name_and_episode_and_path(name):
 
 def process_complete_torrents():
     """Process every torrent file in the finished location."""
-    for filename in os.listdir(f'{SRC_PATH}/finished'):
+    for filename in os.listdir(FINISHED_PATH):
         logging.info('FILENAME is "%s" (deleting now)', filename)
-        os.remove(f'{SRC_PATH}/finished/{filename}')
+        os.remove(f'{FINISHED_PATH}/{filename}')
         splitnames = os.path.splitext(filename)
         logging.info('SPLIT IS "%s"', splitnames)
         if splitnames[1] == '.torrent':

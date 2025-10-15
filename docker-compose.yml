@@ -6,8 +6,6 @@ services:
     container_name: btex-processor
     restart: unless-stopped
     volumes:
-      # Mount your actual config file (create from config.json.example)
-      - ./config.json:/app/config.json:ro
       # Mount torrent source directory (configurable via SRC_PATH)
       - ${SRC_PATH:-/src}:${SRC_PATH:-/src}
       # Mount TV destination directory (configurable via DEST_PATH)
@@ -18,6 +16,12 @@ services:
       - PYTHONUNBUFFERED=1
       - DEST_PATH=${DEST_PATH:-/srv}
       - SRC_PATH=${SRC_PATH:-/src}
+      # Email configuration (optional)
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_USERNAME=${SMTP_USERNAME:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - EMAIL_SENDER=${EMAIL_SENDER:-}
+      - EMAIL_RECIPIENT=${EMAIL_RECIPIENT:-}
     # Run the application periodically using cron-like behavior
     # You might want to use a cron container or scheduler instead
     command: |

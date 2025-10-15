@@ -18,9 +18,6 @@ COPY btex.py .
 COPY btextest.py .
 COPY README.md .
 
-# Create a sample config file (should be mounted as volume in production)
-RUN echo '{"smtphost": "smtp.example.com", "username": "user", "password": "password", "sender": "sender@example.com", "recipient": "recipient@example.com"}' > config.json.example
-
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app

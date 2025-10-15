@@ -6,7 +6,7 @@ WORKDIR /app
 
 # Install system dependencies
 RUN apk add --no-cache \
-    unrar
+    p7zip
 
 # Copy requirements first for better Docker layer caching
 COPY requirements.txt .
@@ -25,7 +25,7 @@ ENV SRC_PATH=/src
 
 # Create necessary directories and non-root user for security
 RUN mkdir -p /srv /src && \
-    useradd -m -u 1000 btex && \
+    adduser -D -u 1000 btex && \
     chown -R btex:btex /app /srv /src
 
 USER btex

@@ -102,19 +102,19 @@ def copy_get_body(source, dest):
 
 def unrar_get_body(source, dest):
     """
-    un-rar and return mail body.
+    Extract archive and return mail body.
     @param source The source
     @param dest The destination
     """
     stats = os.stat(source)
     start_dt = datetime.now()
-    os.system(f'unrar e "{source}" "{dest}"')
+    os.system(f'7z e "{source}" -o"{dest}" -y')
     stop_dt = datetime.now()
     delta = stop_dt - start_dt
     logging.info('Stats "%s"', stats.st_size)
     logging.info('Delta "%s"', delta)
-    body = f'successfully unrared "{source}" to "{dest}"'
-    body = f'{body}\n\nUnrared {stats.st_size/1048576}MB in {delta}'
+    body = f'successfully extracted "{source}" to "{dest}"'
+    body = f'{body}\n\nExtracted {stats.st_size/1048576}MB in {delta}'
     logging.info(body)
     return body
 

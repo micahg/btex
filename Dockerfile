@@ -34,13 +34,11 @@ RUN mkdir -p /srv /src && \
     adduser -D -u 1000 btex && \
     chown -R btex:btex /app /srv /src
 
-USER btex
-
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python3 -c "import btex; print('OK')" || exit 1
 
-# Use entrypoint to set up cron
+# Use entrypoint to set up cron (runs as root, then drops to btex user)
 ENTRYPOINT ["docker-entrypoint.sh"]
 
 # Default command - run cron in foreground

@@ -1,0 +1,7 @@
+# No external dependencies required for the base application
+# The application only uses Python standard library modules:
+# - sys, re, os, logging, json, datetime, smtplib, shutil
+
+# If you want to add development/testing dependencies, uncomment below:
+# pytest==7.4.0
+# pytest-mock==3.11.1

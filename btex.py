@@ -10,8 +10,17 @@ import smtplib
 from shutil import copy2
 
 LOG_FORMAT = '%(asctime)-15s [%(funcName)s] %(message)s'
-DEST_PATH = '/srv/video/tv'
-SRC_PATH = '/home/micah/torrents'
+DEST_PATH = os.getenv('DEST_PATH', '/srv')
+SRC_PATH = os.getenv('SRC_PATH', '/src')
+FINISHED_PATH = os.getenv('FINISHED_PATH', f'{SRC_PATH}/finished')
+
+# Email configuration from environment variables
+SMTP_HOST = os.getenv('SMTP_HOST', '')
+SMTP_USERNAME = os.getenv('SMTP_USERNAME', '')
+SMTP_PASSWORD = os.getenv('SMTP_PASSWORD', '')
+EMAIL_SENDER = os.getenv('EMAIL_SENDER', '')
+EMAIL_RECIPIENT = os.getenv('EMAIL_RECIPIENT', '')
+
 NAME_REGEX = '()'
 TORRENT_MAP = {
     'stephen colbert': "The Late Show with Stephen Colbert"
@@ -21,47 +30,44 @@ FILE_EXTENSIONS = ['mkv']
 
 SHOW_RE = r'(.*)\.([sS]\d+[eE]\d+|\d{4}.\d{2}.\d{2})+\.*'
 
-def validate_email_config(config):
-    if 'username' not in config:
-        logging.error('No username in config')
-        sys.exit(1)
-    elif 'password' not in config:
-        logging.error('No password in config')
-        sys.exit(1)
-    elif 'sender' not in config:
-        logging.error('No sender in config')
-        sys.exit(1)
-    elif 'recipient' not in config:
-        logging.error('No recipient in config')
-        sys.exit(1)
-    elif 'smtphost' not in config:
-        logging.error('No smtphost in config')
-        sys.exit(1)
+def validate_email_config():
+    """Validate email configuration from environment variables."""
+    if not SMTP_USERNAME:
+        logging.error('No SMTP_USERNAME environment variable set')
+        return False
+    elif not SMTP_PASSWORD:
+        logging.error('No SMTP_PASSWORD environment variable set')
+        return False
+    elif not EMAIL_SENDER:
+        logging.error('No EMAIL_SENDER environment variable set')
+        return False
+    elif not EMAIL_RECIPIENT:
+        logging.error('No EMAIL_RECIPIENT environment variable set')
+        return False
+    elif not SMTP_HOST:
+        logging.error('No SMTP_HOST environment variable set')
+        return False
+    return True
 
 
 def send_email(subject, body):
     """Send an email with a subject and body."""
-    try:
-        with open('config.json', 'r', encoding="utf-8") as file:
-            config = json.load(file)
-    except Exception as err:
-        logging.error('Unable to load config: %s', err)
-        sys.exit(1)
-
-    validate_email_config(config)
+    if not validate_email_config():
+        logging.warning('Email not configured - skipping email notification: %s', subject)
+        return
 
     try:
-        server = smtplib.SMTP(config['smtphost'], 587)
+        server = smtplib.SMTP(SMTP_HOST, 587)
         server.ehlo()
         server.starttls()
-        server.login(config['username'], config['password'])
-        server.sendmail(config['sender'], config['recipient'],
+        server.login(SMTP_USERNAME, SMTP_PASSWORD)
+        server.sendmail(EMAIL_SENDER, EMAIL_RECIPIENT,
                         f'Subject: {subject}\n{body}')
         server.quit()
+        logging.info('Email sent: %s', subject)
     except Exception as err:
         logging.error('Unable to send email: %s', err)
-        sys.exit(1)
-    logging.info('EMail sent')
+        # Don't exit - continue processing even if email fails
 
 
 def find_target_file_in_folder(path, extensions):
@@ -96,19 +102,19 @@ def copy_get_body(source, dest):
 
 def unrar_get_body(source, dest):
     """
-    un-rar and return mail body.
+    Extract archive and return mail body.
     @param source The source
     @param dest The destination
     """
     stats = os.stat(source)
     start_dt = datetime.now()
-    os.system(f'unrar e "{source}" "{dest}"')
+    os.system(f'7z e "{source}" -o"{dest}" -y')
     stop_dt = datetime.now()
     delta = stop_dt - start_dt
     logging.info('Stats "%s"', stats.st_size)
     logging.info('Delta "%s"', delta)
-    body = f'successfully unrared "{source}" to "{dest}"'
-    body = f'{body}\n\nUnrared {stats.st_size/1048576}MB in {delta}'
+    body = f'successfully extracted "{source}" to "{dest}"'
+    body = f'{body}\n\nExtracted {stats.st_size/1048576}MB in {delta}'
     logging.info(body)
     return body
 
@@ -241,9 +247,9 @@ def get_show_name_and_episode_and_path(name):
 
 def process_complete_torrents():
     """Process every torrent file in the finished location."""
-    for filename in os.listdir(f'{SRC_PATH}/finished'):
+    for filename in os.listdir(FINISHED_PATH):
         logging.info('FILENAME is "%s" (deleting now)', filename)
-        os.remove(f'{SRC_PATH}/finished/{filename}')
+        os.remove(f'{FINISHED_PATH}/{filename}')
         splitnames = os.path.splitext(filename)
         logging.info('SPLIT IS "%s"', splitnames)
         if splitnames[1] == '.torrent':
@@ -259,8 +265,7 @@ def main():
     """
     Run the main program
     """
-    logging.basicConfig(format=LOG_FORMAT, level=logging.INFO,
-                        filename='/var/log/btex.log')
+    logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
 
     process_complete_torrents()
 

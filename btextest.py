@@ -1,7 +1,7 @@
 import unittest
 import unittest.mock as mock
 from unittest.mock import MagicMock
-
+import os
 
 import btex
 
@@ -55,15 +55,48 @@ class TestBtex(unittest.TestCase):
         for test in tests:
             btex.process_params(test['name'], test['episode'], test['path'])
 
-    @mock.patch('builtins.open', mock.mock_open(read_data='{"smtphost": "SMTPHOST","username": "USER","password": "PASSWORD","sender": "SENDER","recipient": "RECIPIENT"}'))
-    def test_send_email(self):
-        with mock.patch('smtplib.SMTP', autospec=True) as mock_smtplib:
+    def test_send_email_with_config(self):
+        # Patch the module-level variables directly
+        with mock.patch.object(btex, 'SMTP_HOST', 'SMTPHOST'), \
+             mock.patch.object(btex, 'SMTP_USERNAME', 'USER'), \
+             mock.patch.object(btex, 'SMTP_PASSWORD', 'PASSWORD'), \
+             mock.patch.object(btex, 'EMAIL_SENDER', 'SENDER'), \
+             mock.patch.object(btex, 'EMAIL_RECIPIENT', 'RECIPIENT'), \
+             mock.patch('smtplib.SMTP', autospec=True) as mock_smtplib:
+            
             btex.send_email('SUBJ', 'BODY')
 
             mock_smtplib.assert_called_once_with('SMTPHOST', 587)
-            mock_smtp = mock_smtplib.return_value #.__enter__.return_value
+            mock_smtp = mock_smtplib.return_value
             mock_smtp.ehlo.assert_called_once()
             mock_smtp.starttls.assert_called_once()
             mock_smtp.login.assert_called_once_with('USER', 'PASSWORD')
             mock_smtp.sendmail.assert_called_once_with('SENDER', 'RECIPIENT', 'Subject: SUBJ\nBODY')
             mock_smtp.quit.assert_called_once()
+
+    def test_send_email_without_config(self):
+        # Test that send_email gracefully handles missing configuration
+        with mock.patch.object(btex, 'SMTP_HOST', ''), \
+             mock.patch.object(btex, 'SMTP_USERNAME', ''), \
+             mock.patch.object(btex, 'SMTP_PASSWORD', ''), \
+             mock.patch.object(btex, 'EMAIL_SENDER', ''), \
+             mock.patch.object(btex, 'EMAIL_RECIPIENT', ''), \
+             mock.patch('smtplib.SMTP', autospec=True) as mock_smtplib:
+            
+            # Should not raise an exception and should not call SMTP
+            btex.send_email('SUBJ', 'BODY')
+            mock_smtplib.assert_not_called()
+
+    def test_validate_email_config(self):
+        # Test validation with all config present
+        with mock.patch.object(btex, 'SMTP_HOST', 'SMTPHOST'), \
+             mock.patch.object(btex, 'SMTP_USERNAME', 'USER'), \
+             mock.patch.object(btex, 'SMTP_PASSWORD', 'PASSWORD'), \
+             mock.patch.object(btex, 'EMAIL_SENDER', 'SENDER'), \
+             mock.patch.object(btex, 'EMAIL_RECIPIENT', 'RECIPIENT'):
+            
+            self.assertTrue(btex.validate_email_config())
+
+        # Test validation with missing config
+        with mock.patch.object(btex, 'SMTP_HOST', ''):
+            self.assertFalse(btex.validate_email_config())

@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  btex:
+    build: .
+    container_name: btex-processor
+    restart: unless-stopped
+    volumes:
+      # Mount torrent source directory (configurable via SRC_PATH)
+      - ${SRC_PATH:-/src}:${SRC_PATH:-/src}
+      # Mount TV destination directory (configurable via DEST_PATH)
+      - ${DEST_PATH:-/srv}:${DEST_PATH:-/srv}
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+      - DEST_PATH=${DEST_PATH:-/srv}
+      - SRC_PATH=${SRC_PATH:-/src}
+      - FINISHED_PATH=${FINISHED_PATH:-}
+      # Email configuration (optional)
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_USERNAME=${SMTP_USERNAME:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - EMAIL_SENDER=${EMAIL_SENDER:-}
+      - EMAIL_RECIPIENT=${EMAIL_RECIPIENT:-}
+    # Run the application periodically using cron-like behavior
+    # You might want to use a cron container or scheduler instead
+    command: |
+      sh -c "
+        while true; do
+          echo 'Running btex processor...'
+          python3 btex.py
+          echo 'Sleeping for 5 minutes...'
+          sleep 300
+        done
+      "

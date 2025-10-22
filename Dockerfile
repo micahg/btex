@@ -6,7 +6,8 @@ WORKDIR /app
 
 # Install system dependencies
 RUN apk add --no-cache \
-    p7zip
+    p7zip \
+    dcron
 
 # Copy requirements first for better Docker layer caching
 COPY requirements.txt .
@@ -17,11 +18,16 @@ COPY btex.py .
 COPY btextest.py .
 COPY README.md .
 
+# Copy entrypoint script
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app
 ENV DEST_PATH=/srv
 ENV SRC_PATH=/src
+ENV CRON_SCHEDULE="*/5 * * * *"
 
 # Create necessary directories and non-root user for security
 RUN mkdir -p /srv /src && \
@@ -34,5 +40,8 @@ USER btex
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python3 -c "import btex; print('OK')" || exit 1
 
-# Default command
-CMD ["python3", "btex.py"]
+# Use entrypoint to set up cron
+ENTRYPOINT ["docker-entrypoint.sh"]
+
+# Default command - run cron in foreground
+CMD ["crond", "-f", "-l", "2"]

@@ -30,16 +30,15 @@ ENV SRC_PATH=/src
 ENV CRON_SCHEDULE="*/5 * * * *"
 
 # Create necessary directories and non-root user for security
-RUN mkdir -p /srv /src && \
+RUN mkdir -p /srv /src /etc/crontabs && \
     adduser -D -u 1000 btex && \
-    chown -R btex:btex /app /srv /src
+    chown -R btex:btex /app /srv /src && \
+    touch /etc/crontabs/btex && \
+    chmod 0600 /etc/crontabs/btex
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python3 -c "import btex; print('OK')" || exit 1
 
-# Use entrypoint to set up cron (runs as root, then drops to btex user)
+# Use entrypoint to set up cron and keep container running
 ENTRYPOINT ["docker-entrypoint.sh"]
-
-# Default command - run cron in foreground
-CMD ["crond", "-f", "-l", "2"]

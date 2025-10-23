@@ -3,20 +3,20 @@ version: '3.8'
 services:
   btex:
     build: .
-    container_name: btex-processor
+    container_name: btex
+    user: 1000:1000
     restart: unless-stopped
     volumes:
       # Mount torrent source directory (configurable via SRC_PATH)
       - ${SRC_PATH:-/src}:${SRC_PATH:-/src}
       # Mount TV destination directory (configurable via DEST_PATH)
       - ${DEST_PATH:-/srv}:${DEST_PATH:-/srv}
-    env_file:
-      - .env
+    volumes:
+      # NOTE, btex looks under /src/finished
+      - /where/your/torrents/live:/src
+      - /where/your/torrents/go:/srv
     environment:
       - PYTHONUNBUFFERED=1
-      - DEST_PATH=${DEST_PATH:-/srv}
-      - SRC_PATH=${SRC_PATH:-/src}
-      - FINISHED_PATH=${FINISHED_PATH:-}
       # Email configuration (optional)
       - SMTP_HOST=${SMTP_HOST:-}
       - SMTP_USERNAME=${SMTP_USERNAME:-}

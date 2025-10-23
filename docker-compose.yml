@@ -17,7 +17,6 @@ services:
       - DEST_PATH=${DEST_PATH:-/srv}
       - SRC_PATH=${SRC_PATH:-/src}
       - FINISHED_PATH=${FINISHED_PATH:-}
-      - CRON_SCHEDULE=${CRON_SCHEDULE:-*/5 * * * *}
       # Email configuration (optional)
       - SMTP_HOST=${SMTP_HOST:-}
       - SMTP_USERNAME=${SMTP_USERNAME:-}

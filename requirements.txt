@@ -1,6 +1,5 @@
-# No external dependencies required for the base application
-# The application only uses Python standard library modules:
-# - sys, re, os, logging, json, datetime, smtplib, shutil
+# File system monitoring for event-driven torrent processing (Linux only)
+asyncinotify==4.0.2
 
 # If you want to add development/testing dependencies, uncomment below:
 # pytest==7.4.0

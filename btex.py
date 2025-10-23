@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Bittorrent Extractor module."""
-import sys
 import re
 import os
 import logging
-import json
 from datetime import datetime
 import smtplib
 from shutil import copy2
+import asyncio
+from asyncinotify import Inotify, Mask
 
 LOG_FORMAT = '%(asctime)-15s [%(funcName)s] %(message)s'
 DEST_PATH = os.getenv('DEST_PATH', '/srv')
@@ -93,10 +93,14 @@ def copy_get_body(source, dest):
     copy2(source, dest)
     stop_dt = datetime.now()
     delta = stop_dt - start_dt
+    size_mb = stats.st_size / 1048576
+    seconds = delta.total_seconds()
+    mb_per_sec = size_mb / seconds if seconds > 0 else 0
     logging.info('Stats "%s"', stats.st_size)
     logging.info('Delta "%s"', delta)
+    logging.info('Speed: %.2f MB/s', mb_per_sec)
     body = f'successfully copied "{source}" to "{dest}"'
-    body = f'{body}\n\nCopied {stats.st_size/1048576}MB in {delta}'
+    body = f'{body}\n\nCopied {size_mb:.2f}MB in {delta} ({mb_per_sec:.2f} MB/s)'
     logging.info(body)
     return body
 
@@ -111,10 +115,14 @@ def unrar_get_body(source, dest):
     os.system(f'7z e "{source}" -o"{dest}" -y')
     stop_dt = datetime.now()
     delta = stop_dt - start_dt
+    size_mb = stats.st_size / 1048576
+    seconds = delta.total_seconds()
+    mb_per_sec = size_mb / seconds if seconds > 0 else 0
     logging.info('Stats "%s"', stats.st_size)
     logging.info('Delta "%s"', delta)
+    logging.info('Speed: %.2f MB/s', mb_per_sec)
     body = f'successfully extracted "{source}" to "{dest}"'
-    body = f'{body}\n\nExtracted {stats.st_size/1048576}MB in {delta}'
+    body = f'{body}\n\nExtracted {size_mb:.2f}MB in {delta} ({mb_per_sec:.2f} MB/s)'
     logging.info(body)
     return body
 
@@ -245,29 +253,120 @@ def get_show_name_and_episode_and_path(name):
     # name, episode, path
     return match[2], match[3], match[1]
 
-def process_complete_torrents():
-    """Process every torrent file in the finished location."""
-    for filename in os.listdir(FINISHED_PATH):
-        logging.info('FILENAME is "%s" (deleting now)', filename)
-        os.remove(f'{FINISHED_PATH}/{filename}')
-        splitnames = os.path.splitext(filename)
-        logging.info('SPLIT IS "%s"', splitnames)
-        if splitnames[1] == '.torrent':
-            # logging.info('MICAH LOOK HERE WHEN IT BREAKS - SPLITTING BASE BY SPACE BECAUSE OF " [TD]" SUFFIX')
-            name, episode, path = get_show_name_and_episode_and_path(filename)
-            logging.info('NAME IS "%s"', name)
-            logging.info('EPISODE IS "%s"', episode)
-            logging.info('PATH IS "%s"', path)
-            process_params(name, episode, f'{SRC_PATH}/{path}')
+# Async queue and condition for coordinating file watching and processing
+torrent_queue = asyncio.Queue()
+queue_condition = asyncio.Condition()
+
+
+async def watch_complete_torrents():
+    """Watch FINISHED_PATH for new torrent files and add them to the queue."""
+    logging.info('Starting file watcher on: %s', FINISHED_PATH)
+    
+    # Ensure FINISHED_PATH exists
+    os.makedirs(FINISHED_PATH, exist_ok=True)
+    
+    # Process any existing torrent files on startup
+    try:
+        for filename in os.listdir(FINISHED_PATH):
+            if filename.endswith('.torrent'):
+                logging.info('Found existing torrent file: %s', filename)
+                async with queue_condition:
+                    await torrent_queue.put(filename)
+                    queue_condition.notify()
+    except Exception as e:
+        logging.error('Error processing existing files: %s', e)
+    
+    # Set up inotify to watch for new files
+    inotify = Inotify()
+    inotify.add_watch(FINISHED_PATH, Mask.CREATE)
+    logging.info('File watcher started, monitoring for new .torrent files')
+    
+    try:
+        async for event in inotify:
+            # Only process .torrent files
+            if event.name and str(event.name).endswith('.torrent'):
+                filename = str(event.name)
+                logging.info('Detected new torrent file: %s', filename)
+                async with queue_condition:
+                    await torrent_queue.put(filename)
+                    logging.info('Added to queue: %s (queue size: %d)', 
+                                filename, torrent_queue.qsize())
+                    queue_condition.notify()
+    finally:
+        inotify.close()
+
+
+async def process_complete_torrents():
+    """Process torrent files from the queue one at a time."""
+    logging.info('Starting torrent processor')
+    
+    while True:
+        # Wait for a torrent to be available in the queue
+        async with queue_condition:
+            await queue_condition.wait_for(lambda: not torrent_queue.empty())
+            filename = await torrent_queue.get()
+        
+        logging.info('Processing torrent from queue: %s', filename)
+        
+        try:
+            # Check if file still exists (it might have been processed already)
+            filepath = f'{FINISHED_PATH}/{filename}'
+            if not os.path.exists(filepath):
+                logging.warning('Torrent file no longer exists: %s', filepath)
+                continue
+            
+            # Delete the torrent file
+            logging.info('FILENAME is "%s" (deleting now)', filename)
+            os.remove(filepath)
+            
+            # Process the torrent
+            splitnames = os.path.splitext(filename)
+            logging.info('SPLIT IS "%s"', splitnames)
+            
+            if splitnames[1] == '.torrent':
+                name, episode, path = get_show_name_and_episode_and_path(filename)
+                logging.info('NAME IS "%s"', name)
+                logging.info('EPISODE IS "%s"', episode)
+                logging.info('PATH IS "%s"', path)
+                process_params(name, episode, f'{SRC_PATH}/{path}')
+            
+            logging.info('Finished processing: %s', filename)
+            
+        except Exception as e:
+            logging.error('Error processing torrent %s: %s', filename, e)
+            send_email(f'FAILED Processing {filename}', str(e))
+
+
+async def main_async():
+    """Run the main program with asyncio."""
+    logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
+    logging.info('Starting BTEX processor')
+    logging.info('DEST_PATH: %s', DEST_PATH)
+    logging.info('SRC_PATH: %s', SRC_PATH)
+    logging.info('FINISHED_PATH: %s', FINISHED_PATH)
+    
+    # Create tasks for watching and processing
+    watcher_task = asyncio.create_task(watch_complete_torrents())
+    processor_task = asyncio.create_task(process_complete_torrents())
+    
+    # Run both tasks concurrently
+    try:
+        await asyncio.gather(watcher_task, processor_task)
+    except KeyboardInterrupt:
+        logging.info('Shutting down...')
+        watcher_task.cancel()
+        processor_task.cancel()
+        try:
+            await asyncio.gather(watcher_task, processor_task)
+        except asyncio.CancelledError:
+            pass
 
 
 def main():
     """
     Run the main program
     """
-    logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
-
-    process_complete_torrents()
+    asyncio.run(main_async())
 
 
 if __name__ == '__main__':

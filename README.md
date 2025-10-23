@@ -1,11 +1,7 @@
-# BT EX
+# BitTorrent Extractor
 
-## Remote Debug
+Largly dockerized now -- see the example compose, and then run:
 
-SSH in with `-L 5678:localhost:5678`.
-
-Do you work
-
-Copy changes from local to remote
-
-Execute `python3 -mdebugpy --wait-for-client --listen 5678 btex.py`
+```
+docker compose -f btex-compose.yml up -d
+```

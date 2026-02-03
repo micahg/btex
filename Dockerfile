@@ -1,11 +1,16 @@
-# Use Python 3 Alpine image as base
-FROM python:3-alpine
+# Use Python 3 Slim (Debian) image for better unrar compatibility
+FROM python:3-slim-bookworm
 
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies
-RUN apk add --no-cache p7zip
+# Enable non-free repositories and install unrar
+# We rewrite sources.list to ensure we have non-free components for unrar
+RUN echo "deb http://deb.debian.org/debian bookworm main contrib non-free non-free-firmware" > /etc/apt/sources.list && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+    unrar \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better Docker layer caching
 COPY requirements.txt .
@@ -23,8 +28,9 @@ ENV DEST_PATH=/srv
 ENV SRC_PATH=/src
 
 # Create necessary directories and non-root user for security
+# Debian uses useradd
 RUN mkdir -p /srv /src && \
-    adduser -D -u 1000 btex && \
+    useradd -u 1000 -U -m -s /bin/bash btex && \
     chown -R btex:btex /app /srv /src
 
 # Switch to non-root user

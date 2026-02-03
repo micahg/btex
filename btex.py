@@ -112,7 +112,7 @@ def unrar_get_body(source, dest):
     """
     stats = os.stat(source)
     start_dt = datetime.now()
-    os.system(f'7z e "{source}" -o"{dest}" -y')
+    os.system(f'unrar e -y "{source}" "{dest}/"')
     stop_dt = datetime.now()
     delta = stop_dt - start_dt
     size_mb = stats.st_size / 1048576
